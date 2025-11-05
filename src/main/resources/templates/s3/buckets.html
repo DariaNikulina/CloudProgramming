@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>S3 Buckets</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+</head>
+<body class="p-5">
+
+<h1 class="title">Бакеты</h1>
+
+<form th:action="@{/s3/create-bucket}" method="post" class="mb-4">
+    <div class="field has-addons">
+        <div class="control is-expanded">
+            <input class="input" type="text" name="bucketName" placeholder="Имя нового бакета" required>
+        </div>
+        <div class="control">
+            <button class="button is-primary" type="submit">Создать</button>
+        </div>
+    </div>
+</form>
+
+<table class="table is-fullwidth is-striped">
+    <thead>
+        <tr><th>Имя</th><th>Операции</th></tr>
+    </thead>
+    <tbody>
+    <tr th:each="bucket : ${buckets}">
+        <td th:text="${bucket}"></td>
+        <td>
+            <a class="button is-small is-info" th:href="@{|/s3/${bucket}|}">Просмотреть содержимое</a>
+            <form th:action="@{/s3/delete-bucket}" method="post" style="display:inline">
+                <input type="hidden" name="bucketName" th:value="${bucket}">
+                <button class="button is-small is-danger" type="submit">Удалить</button>
+            </form>
+        </td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

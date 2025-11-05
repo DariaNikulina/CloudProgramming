@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title th:text="'Bucket: ' + ${bucketName}"></title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+</head>
+<body class="p-5">
+
+<h1 class="title" th:text="'Бакет: ' + ${bucketName}"></h1>
+<a class="button is-link mb-3" href="/s3">Назад</a>
+
+<form th:action="@{|/s3/${bucketName}/upload|}" method="post" enctype="multipart/form-data" class="mb-4">
+    <div class="field has-addons">
+        <div class="control is-expanded">
+            <input class="input" type="file" name="file" required>
+        </div>
+        <div class="control">
+            <button class="button is-primary" type="submit">Загрузить новый файл</button>
+        </div>
+    </div>
+</form>
+
+<table class="table is-fullwidth is-striped">
+    <thead>
+    <tr><th>File</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+    <tr th:each="file : ${objects}">
+        <td th:text="${file}"></td>
+        <td>
+            <a class="button is-small is-success" th:href="@{|/s3/${bucketName}/download/${file}|}">Скачать файл</a>
+            <form th:action="@{|/s3/${bucketName}/delete-file|}" method="post" style="display:inline">
+                <input type="hidden" name="fileName" th:value="${file}">
+                <button class="button is-small is-danger" type="submit">Удалить файл</button>
+            </form>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+</body>
+</html>
