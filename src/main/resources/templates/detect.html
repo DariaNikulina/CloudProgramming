@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ru">
+<head>
+    <meta charset="utf-8"/>
+    <title>VK API Detect</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 16px; }
+        .container { display: flex; gap: 24px; align-items: flex-start; }
+        .left { width: 840px; }
+        .right { flex: 1; min-width: 360px; max-width: 800px; }
+        canvas { display:block; margin:0; }
+        .img-wrapper { position: relative; display: inline-block; border: 1px solid #ddd; }
+
+        pre { white-space: pre-wrap; word-break: break-word; background: #f7f7f7; padding: 12px; border: 1px solid #eee; max-height: 640px; overflow: auto; }
+        .legend { margin-top:8px; font-size: 14px; }
+        .legend span { display:inline-block; margin-right:12px; }
+    </style>
+</head>
+<body>
+<h1>VK API Test</h1>
+
+<form th:action="@{/detect}" method="post" enctype="multipart/form-data">
+    <div>
+        <label>Изображение: <input type="file" name="file" required/></label>
+    </div>
+    <div style="margin-top:8px;">
+        <button type="submit">Загрузить</button>
+    </div>
+</form>
+
+<div th:if="${error}" class="error" th:text="${error}"></div>
+<div th:if="${status}" class="status">HTTP статус: <span th:text="${status}"></span></div>
+
+<div class="container" th:if="${imageData != null}">
+    <div class="left">
+        <div class="img-wrapper" id="imgWrapper">
+            <img id="sourceImage"
+                 th:src="${imageData}"
+                 alt="uploaded"
+                 onload="draw()"
+                 style="display:block; max-width:100%; height:auto;" />
+            <canvas id="overlay" style="position:absolute; left:0; top:0;"></canvas>
+        </div>
+
+        <div class="legend" id="legend"></div>
+    </div>
+
+    <div class="right">
+        <h3>Ответ API (JSON)</h3>
+        <label for="jsonTextarea"></label><textarea id="jsonTextarea" th:text="${json}" style="width:100%; height:500px; display:none;"></textarea>
+        <pre id="jsonPre" th:text="${json}">Нет json</pre>
+    </div>
+</div>
+
+<script>
+    function parseJson(text) {
+        try { return JSON.parse(text); } catch (e) { return null; }
+    }
+
+    function collectLabels(apiJson) {
+        if (!apiJson || !apiJson.body) return [];
+        const body = apiJson.body;
+        let all = [];
+
+        function pushLabels(list, source) {
+            if (!Array.isArray(list)) return;
+            list.forEach(group => {
+                if (!group || !Array.isArray(group.labels)) return;
+                group.labels.forEach(label => {
+                    all.push(label);
+                });
+            });
+        }
+
+        pushLabels(body.pedestrian_labels, 'pedestrian_labels');
+
+        return all;
+    }
+
+    function draw() {
+        const rawText = document.getElementById('jsonTextarea')?.value || document.getElementById('jsonPre')?.innerText;
+        const apiJson = parseJson(rawText);
+        const labels = collectLabels(apiJson);
+        const img = document.getElementById('sourceImage');
+        const overlay = document.getElementById('overlay');
+        const wrapper = document.getElementById('imgWrapper');
+        if (!img || !overlay || !wrapper) return;
+
+        const imgRect = img.getBoundingClientRect();
+        const displayWidth = Math.round(imgRect.width), displayHeight = Math.round(imgRect.height);
+
+        const naturalWidth = img.naturalWidth || displayWidth;
+        const naturalHeight = img.naturalHeight || displayHeight;
+
+        const scaleX = displayWidth / naturalWidth;
+        const scaleY = displayHeight / naturalHeight;
+
+        overlay.style.position = 'absolute';
+        overlay.style.left = '0px';
+        overlay.style.top = '0px';
+        overlay.style.width = displayWidth + 'px';
+        overlay.style.height = displayHeight + 'px';
+
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        overlay.width  = Math.max(1, Math.round(displayWidth * devicePixelRatio));
+        overlay.height = Math.max(1, Math.round(displayHeight * devicePixelRatio));
+
+        const context = overlay.getContext('2d');
+        context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+        context.clearRect(0, 0, displayWidth, displayHeight);
+        context.lineWidth = 1;
+        context.font = '14px Arial';
+        context.textBaseline = 'top';
+
+        labels.forEach((label, idx) => {
+            if (!Array.isArray(label.coord) || label.coord.length < 4) return;
+            const [x1,y1,x2,y2] = label.coord.map(Number);
+
+            const scaledX = x1 * scaleX;
+            const scaledY = y1 * scaleY;
+            const scaledWidth = (x2 - x1) * scaleX;
+            const scaledHeight = (y2 - y1) * scaleY;
+
+            const color = '#e74c3c';
+            context.strokeStyle = color;
+            context.fillStyle = color;
+            context.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+
+            const text = (label.eng || label.rus || 'obj') + (label.prob ? ` (${Number(label.prob).toFixed(3)})` : '');
+            const padding = 4;
+            const textWidth = context.measureText(text).width + padding*2;
+            const textHeight = 18;
+            context.fillRect(scaledX, scaledY, textWidth, textHeight);
+            context.fillStyle = '#fff';
+            context.fillText(text, scaledX + padding, scaledY + 2);
+        });
+    }
+</script>
+
+</body>
+</html>
